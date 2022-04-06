@@ -78,4 +78,45 @@ router.post("/usertransaction", (req, res) => {
       }
     );
 });
+router.post("/amounttransfer", async (req, res) => {
+  const { sender, receiver, amount } = req.body;
+  let transaction;
+  try {
+    transaction = await sequelize.transaction();
+    const senderId = await balanceModel.findOne({ where: { userId: sender } });
+    const receiverId = await balanceModel.findOne({
+      where: { userId: receiver },
+    });
+    transactionModel.create({
+      transcation_date: new Date(),
+      transaction_amount: amount,
+      userId: sender,
+    });
+    const senderAmount = await balanceModel.update(
+      { balance: senderId.balance - parseInt(amount) },
+      {
+        where: {
+          userId: sender,
+        },
+      },
+      { transaction }
+    );
+    const receiverAmount = await balanceModel.update(
+      { balance: receiverId.balance + parseInt(amount) },
+      {
+        where: {
+          userId: receiver,
+        },
+      },
+      { transaction }
+    );
+    await transaction.commit();
+    res.json({ status: 1, data: "Amount Credited Successfully" });
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback();
+    }
+    res.json({ status: 0, error });
+  }
+});
 module.exports = router;
